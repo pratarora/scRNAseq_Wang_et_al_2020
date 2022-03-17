@@ -1,0 +1,978 @@
+---
+title: "Wang_et_al_2019_Cell_Reports"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    smooth_scroll: true
+    theme: cerulean
+    df_print: paged
+---
+
+This is an anlysis for Wang et al
+
+```{r, setup, include=FALSE}
+# chunk option defaults
+knitr::opts_chunk$set(fig.height=9, fig.width=9)
+```
+
+```{r}
+rm(list = ls())
+gc()
+setwd("/home/prateek/Mercader_Lab/Splice_variant_analysis/")
+getwd()
+```
+
+# Load required libraries
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(Seurat)
+library(patchwork)
+library(future)
+plan("multiprocess", workers = 4)
+plan()
+options(future.globals.maxSize = 20 * 1024 ^ 3) # for 20 Gb RAM
+options(future.seed=TRUE)
+```
+
+# Get all counts from all individual data from all individual experimental conditions
+
+```{r}
+D1_P1_MI_data <- Read10X(data.dir = "GSE153480/D1_P1_MI/outs/raw_feature_bc_matrix/")
+D1_P1_MI <- CreateSeuratObject(counts = D1_P1_MI_data, project = "D1_P1_MI", min.cells = 3, min.features = 200)
+D1_P1_MI
+
+
+
+```
+
+```{r}
+D1_P1_MI[["percent.mt"]] <- PercentageFeatureSet(D1_P1_MI, pattern = "^mt-")
+
+
+```
+```{r}
+VlnPlot(D1_P1_MI, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+```
+
+```{r}
+library(patchwork)
+plot1 <- FeatureScatter(D1_P1_MI, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(D1_P1_MI, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+```
+## remove low counts and possible doublets and dead cells
+
+```{r}
+D1_P1_MI <- subset(D1_P1_MI, subset = nFeature_RNA > 200 & nFeature_RNA < 7500 & percent.mt < 25)
+
+```
+
+# Normalize the counts
+
+```{r}
+D1_P1_MI <- NormalizeData(D1_P1_MI, normalization.method = "LogNormalize", scale.factor = 10000)
+D1_P1_MI <- NormalizeData(D1_P1_MI)
+
+```
+
+# find the variable features to help integrate
+
+```{r}
+D1_P1_MI <- FindVariableFeatures(D1_P1_MI, selection.method = "vst", nfeatures = 2000)
+```
+
+```{r, fig.height=12, fig.width=12}
+top10 <- head(VariableFeatures(D1_P1_MI), 10)
+
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(D1_P1_MI)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 + plot2
+```
+
+## Repeat the same for other conditions
+
+```{r, fig.height=12, fig.width=12}
+D1_P1_SHAM_data <- Read10X(data.dir = "GSE153480/D1_P1_SHAM/outs/raw_feature_bc_matrix/")
+D1_P1_SHAM <- CreateSeuratObject(counts = D1_P1_SHAM_data, project = "D1_P1_SHAM", min.cells = 3, min.features = 200)
+D1_P1_SHAM
+
+D1_P1_SHAM[["percent.mt"]] <- PercentageFeatureSet(D1_P1_SHAM, pattern = "^mt-")
+VlnPlot(D1_P1_SHAM, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+plot1 <- FeatureScatter(D1_P1_SHAM, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(D1_P1_SHAM, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+D1_P1_SHAM <- subset(D1_P1_SHAM, subset = nFeature_RNA > 200 & nFeature_RNA < 4000 & percent.mt < 25)
+D1_P1_SHAM <- NormalizeData(D1_P1_SHAM, normalization.method = "LogNormalize", scale.factor = 10000)
+D1_P1_SHAM <- NormalizeData(D1_P1_SHAM)
+D1_P1_SHAM <- FindVariableFeatures(D1_P1_SHAM, selection.method = "vst", nfeatures = 2000)
+top10 <- head(VariableFeatures(D1_P1_SHAM), 10)
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(D1_P1_SHAM)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 + plot2
+```
+
+
+
+```{r, fig.height=12, fig.width=12}
+D1_P8_MI_data <- Read10X(data.dir = "GSE153480/D1_P8_MI/outs/raw_feature_bc_matrix/")
+D1_P8_MI <- CreateSeuratObject(counts = D1_P8_MI_data, project = "D1_P8_MI", min.cells = 3, min.features = 200)
+D1_P8_MI
+
+D1_P8_MI[["percent.mt"]] <- PercentageFeatureSet(D1_P8_MI, pattern = "^mt-")
+VlnPlot(D1_P8_MI, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+plot1 <- FeatureScatter(D1_P8_MI, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(D1_P8_MI, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+D1_P8_MI <- subset(D1_P8_MI, subset = nFeature_RNA > 200 & nFeature_RNA < 3000 & percent.mt < 25)
+D1_P8_MI <- NormalizeData(D1_P8_MI, normalization.method = "LogNormalize", scale.factor = 10000)
+D1_P8_MI <- NormalizeData(D1_P8_MI)
+D1_P8_MI <- FindVariableFeatures(D1_P8_MI, selection.method = "vst", nfeatures = 2000)
+top10 <- head(VariableFeatures(D1_P8_MI), 10)
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(D1_P8_MI)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 + plot2
+```
+
+```{r, fig.height=12, fig.width=12}
+D1_P8_SHAM_data <- Read10X(data.dir = "GSE153480/D1_P8_SHAM/outs/raw_feature_bc_matrix/")
+D1_P8_SHAM <- CreateSeuratObject(counts = D1_P8_SHAM_data, project = "D1_P8_SHAM", min.cells = 3, min.features = 200)
+D1_P8_SHAM
+
+D1_P8_SHAM[["percent.mt"]] <- PercentageFeatureSet(D1_P8_SHAM, pattern = "^mt-")
+VlnPlot(D1_P8_SHAM, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+plot1 <- FeatureScatter(D1_P8_SHAM, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(D1_P8_SHAM, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+D1_P8_SHAM <- subset(D1_P8_SHAM, subset = nFeature_RNA > 200 & nFeature_RNA < 3500 & percent.mt < 25)
+D1_P8_SHAM <- NormalizeData(D1_P8_SHAM, normalization.method = "LogNormalize", scale.factor = 10000)
+D1_P8_SHAM <- NormalizeData(D1_P8_SHAM)
+D1_P8_SHAM <- FindVariableFeatures(D1_P8_SHAM, selection.method = "vst", nfeatures = 2000)
+top10 <- head(VariableFeatures(D1_P8_SHAM), 10)
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(D1_P8_SHAM)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 + plot2
+```
+
+```{r, fig.height=12, fig.width=12}
+D3_P1_MI_data <- Read10X(data.dir = "GSE153480/D3_P1_MI/outs/raw_feature_bc_matrix/")
+D3_P1_MI <- CreateSeuratObject(counts = D3_P1_MI_data, project = "D3_P1_MI", min.cells = 3, min.features = 200)
+D3_P1_MI
+
+D3_P1_MI[["percent.mt"]] <- PercentageFeatureSet(D3_P1_MI, pattern = "^mt-")
+VlnPlot(D3_P1_MI, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+plot1 <- FeatureScatter(D3_P1_MI, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(D3_P1_MI, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+D3_P1_MI <- subset(D3_P1_MI, subset = nFeature_RNA > 200 & nFeature_RNA < 4000 & percent.mt < 25)
+D3_P1_MI <- NormalizeData(D3_P1_MI, normalization.method = "LogNormalize", scale.factor = 10000)
+D3_P1_MI <- NormalizeData(D3_P1_MI)
+D3_P1_MI <- FindVariableFeatures(D3_P1_MI, selection.method = "vst", nfeatures = 2000)
+top10 <- head(VariableFeatures(D3_P1_MI), 10)
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(D3_P1_MI)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 + plot2
+```
+
+```{r, fig.height=12, fig.width=12}
+D3_P1_SHAM_data <- Read10X(data.dir = "GSE153480/D3_P1_SHAM/outs/raw_feature_bc_matrix/")
+D3_P1_SHAM <- CreateSeuratObject(counts = D3_P1_SHAM_data, project = "D3_P1_SHAM", min.cells = 3, min.features = 200)
+D3_P1_SHAM
+
+D3_P1_SHAM[["percent.mt"]] <- PercentageFeatureSet(D3_P1_SHAM, pattern = "^mt-")
+VlnPlot(D3_P1_SHAM, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+plot1 <- FeatureScatter(D3_P1_SHAM, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(D3_P1_SHAM, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+D3_P1_SHAM <- subset(D3_P1_SHAM, subset = nFeature_RNA > 200 & nFeature_RNA < 4000 & percent.mt < 25)
+D3_P1_SHAM <- NormalizeData(D3_P1_SHAM, normalization.method = "LogNormalize", scale.factor = 10000)
+D3_P1_SHAM <- NormalizeData(D3_P1_SHAM)
+D3_P1_SHAM <- FindVariableFeatures(D3_P1_SHAM, selection.method = "vst", nfeatures = 2000)
+top10 <- head(VariableFeatures(D3_P1_SHAM), 10)
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(D3_P1_SHAM)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 + plot2
+```
+
+
+```{r, fig.height=12, fig.width=12}
+D3_P8_MI_data <- Read10X(data.dir = "GSE153480/D3_P8_MI/outs/raw_feature_bc_matrix/")
+D3_P8_MI <- CreateSeuratObject(counts = D3_P8_MI_data, project = "D3_P8_MI", min.cells = 3, min.features = 200)
+D3_P8_MI
+
+D3_P8_MI[["percent.mt"]] <- PercentageFeatureSet(D3_P8_MI, pattern = "^mt-")
+VlnPlot(D3_P8_MI, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+plot1 <- FeatureScatter(D3_P8_MI, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(D3_P8_MI, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+D3_P8_MI <- subset(D3_P8_MI, subset = nFeature_RNA > 200 & nFeature_RNA < 4000 & percent.mt < 25)
+D3_P8_MI <- NormalizeData(D3_P8_MI, normalization.method = "LogNormalize", scale.factor = 10000)
+D3_P8_MI <- NormalizeData(D3_P8_MI)
+D3_P8_MI <- FindVariableFeatures(D3_P8_MI, selection.method = "vst", nfeatures = 2000)
+top10 <- head(VariableFeatures(D3_P8_MI), 10)
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(D3_P8_MI)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 + plot2
+```
+
+```{r, fig.height=12, fig.width=12}
+D3_P8_SHAM_data <- Read10X(data.dir = "GSE153480/D3_P8_SHAM/outs/raw_feature_bc_matrix/")
+D3_P8_SHAM <- CreateSeuratObject(counts = D3_P8_SHAM_data, project = "D3_P8_SHAM", min.cells = 3, min.features = 200)
+D3_P8_SHAM
+
+D3_P8_SHAM[["percent.mt"]] <- PercentageFeatureSet(D3_P8_SHAM, pattern = "^mt-")
+VlnPlot(D3_P8_SHAM, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+plot1 <- FeatureScatter(D3_P8_SHAM, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(D3_P8_SHAM, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+D3_P8_SHAM <- subset(D3_P8_SHAM, subset = nFeature_RNA > 200 & nFeature_RNA < 2000 & percent.mt < 25)
+D3_P8_SHAM <- NormalizeData(D3_P8_SHAM, normalization.method = "LogNormalize", scale.factor = 10000)
+D3_P8_SHAM <- NormalizeData(D3_P8_SHAM)
+D3_P8_SHAM <- FindVariableFeatures(D3_P8_SHAM, selection.method = "vst", nfeatures = 2000)
+top10 <- head(VariableFeatures(D3_P8_SHAM), 10)
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(D3_P8_SHAM)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 + plot2
+```
+
+# Integrate all datasets from different conditions
+
+## Make a list of all the Seurat object to integrate
+
+```{r}
+all_object_list <- c(D1_P1_MI,
+D1_P1_SHAM,
+D1_P8_MI,
+D1_P8_SHAM,
+D3_P1_MI,
+D3_P1_SHAM,
+D3_P8_MI,
+D3_P8_SHAM)
+```
+
+## identify integrating features and anchors that can be used to integrate all different seurat objects
+
+```{r}
+features <- SelectIntegrationFeatures(object.list = all_object_list)
+head(features)
+```
+# find integration anchors
+
+```{r}
+anchors <- FindIntegrationAnchors(object.list = all_object_list, anchor.features = features)
+
+```
+```{r}
+combined <- IntegrateData(anchorset = anchors)
+```
+
+## Run PCA and Jackstraw for clustering
+
+```{r}
+DefaultAssay(combined) <- "integrated"
+
+combined <- ScaleData(combined, verbose = FALSE)
+combined <- RunPCA(combined, npcs = 60, verbose = FALSE)
+```
+
+```{r}
+DimPlot(combined, reduction = "pca")
+## shows good mixing of conditions-- needs to be checked with tSNE
+```
+
+```{r}
+combined <- JackStraw(combined, num.replicate = 100, dims = 60)
+combined <- ScoreJackStraw(combined, dims = 1:60)
+```
+```{r}
+JackStrawPlot(combined, dims = 1:50)
+ElbowPlot(combined, ndims = 60)
+
+# Elbow seems at 18, 20 or 50
+```
+
+```{r}
+combined <- RunUMAP(combined, reduction = "pca", dims = 1:50)
+
+```
+
+
+```{r}
+combined
+```
+
+
+```{r}
+combined <- FindNeighbors(combined, reduction = "pca", dims = 1:50)
+combined <- FindClusters(combined, resolution = 0.7)
+DimPlot(combined, reduction = "umap", label = TRUE)
+# clustering matches best with publication with 50 pca dims and resolution 0.7
+```
+```{r}
+# making another object for other analysis down
+combined_all <- combined
+```
+
+
+
+```{r, fig.height=12, fig.width=12}
+DimPlot(combined, reduction = "umap", label = TRUE)
+```
+## checking if normalization across conditions worked properly
+
+```{r}
+DimPlot(combined, reduction = "umap", label = TRUE, group.by = "orig.ident")
+# cells from all conditions are mixed, suggesting cells are clustering not based on condition but probably cell types
+```
+
+# Cluster annotation
+## find markers
+
+```{r}
+combined.markers <- FindAllMarkers(combined, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+combined.markers %>%
+    group_by(cluster) %>%
+    slice_max(n = 2, order_by = avg_log2FC)
+
+```
+
+## Match with markers published in the paper
+
+```{r}
+paper_markers <- openxlsx::read.xlsx("GSE153480/1-s2.0-S2211124720314613-mmc3.xlsx")
+paper_markers %>% head
+```
+
+
+```{r, fig.height=12, fig.width=12}
+genes_fig1D <- c("Myh6", "Cdh5", "Pdgfra", "Msln", "Myh11", "Kcnj8", "Adgre1", "Itgal", "Naaa", "S100a9", "Cd3g", "Ms4a1", "Plp1", "Hbb-bt", "Hba-a1")
+VlnPlot(object = combined, features = genes_fig1D[], stack = TRUE) + NoLegend()
+```
+
+
+```{r}
+clusters_from_paper <- paper_markers %>% pull(cluster) %>% unique()
+clusters_from_paper
+```
+
+```{r}
+
+# Function to compare multiple feature plots for various gene markers in the paper
+## needed to repeat this for all cluster so made a function 
+
+compare_clusters <- function(cluster_name, number_of_genes = 50){ # take cluster name from the paper, and top markers associated with it
+  
+  
+  # pull the genes associated with a cluster in the paper
+  genes_in_cluster <- paper_markers$gene[(paper_markers$cluster %in% cluster_name)]
+  
+  # take only the top n genes (as specified in the function)
+  genes_in_cluster <- genes_in_cluster[1:number_of_genes]
+  
+  # Make feature plots to understand the clusters and cell types
+  print(FeaturePlot(combined, features = genes_in_cluster[1:9])+ labs(title = paste0("Markers fdrom paper for", cluster_name)))
+  print(FeaturePlot(combined, features = genes_in_cluster[10:18]))
+  
+  
+  df <- combined.markers %>% # check the markers of each cluster identified in the integrated seurat object
+    group_by(cluster) %>% # for running in each cluster
+    slice_max(n = number_of_genes, order_by = avg_log2FC) %>% # take top number of genes arranged by Log2FC
+    dplyr::filter(gene %in% genes_in_cluster) %>% group_by(cluster) %>% # check which all of the genes from paper in which cluster of the seurat object
+    mutate(number=n()) %>% # count the number of genes that match
+    arrange(desc(number)) %>% #arrange in descending order
+    distinct(number) # remove the duplicate rows as I only want the numbers of genes that match
+  
+  df$cluster_from_paper <- cluster_name # add a column to tell what the cluster name was
+  df # print the df with the clusters that have the maximum matching genes
+}
+
+
+```
+
+```{r, fig.height=12, fig.width=12}
+# check what cluster matches the paper clusters
+DimPlot(combined, reduction = "umap", label = TRUE)
+lapply(clusters_from_paper[1:5], compare_clusters)
+```
+
+```{r, fig.height=12, fig.width=12}
+DimPlot(combined, reduction = "umap", label = TRUE)
+lapply(clusters_from_paper[6:10], compare_clusters)
+```
+
+```{r, fig.height=12, fig.width=12}
+DimPlot(combined, reduction = "umap", label = TRUE)
+lapply(clusters_from_paper[11:15], compare_clusters)
+```
+
+```{r, fig.height=12, fig.width=12}
+DimPlot(combined, reduction = "umap", label = TRUE)
+lapply(clusters_from_paper[16:20], compare_clusters)
+```
+
+```{r, fig.height=12, fig.width=12}
+DimPlot(combined, reduction = "umap", label = TRUE)
+lapply(clusters_from_paper[21:22], compare_clusters)
+```
+
+```{r}
+paper_markers$gene[(paper_markers$cluster %in% "CM")]
+
+```
+# check for RBCs
+I realized that I did not remove RBCs which can effect the normalization etc so removing and re-normalizing the data
+
+```{r, fig.height=12, fig.width=12}
+genes_fig1D <- c("Myh6", "Cdh5", "Pdgfra", "Msln", "Myh11", "Kcnj8", "Adgre1", "Itgal", "Naaa", "S100a9", "Cd3g", "Ms4a1", "Plp1", "Hbb-bt", "Hba-a1")
+FeaturePlot(object = combined, features = genes_fig1D[1:6], ncol = 2)
+FeaturePlot(object = combined, features = genes_fig1D[7:12], ncol = 2)
+FeaturePlot(object = combined, features = genes_fig1D[13:20], ncol = 2)
+DimPlot(combined, reduction = "umap", label = TRUE)
+
+```
+## top10 markers from each clusters
+```{r}
+combined.markers %>%
+    group_by(cluster) %>%
+    top_n(n = 10, wt = avg_log2FC) -> top10
+top10 %>% head
+
+```
+## remove RBC clusters
+
+```{r}
+combined_no_rbc <- subset(x = combined, subset = (integrated_snn_res.0.7== 18 |integrated_snn_res.0.7== 24), invert= TRUE)
+combined_no_rbc
+combined_no_rbc@meta.data %>% distinct(integrated_snn_res.0.7)
+```
+## Rescaling and normalizing data
+
+```{r, fig.height=12, fig.width=12}
+DefaultAssay(combined_no_rbc) <- "integrated"
+
+combined_no_rbc <- ScaleData(combined_no_rbc, verbose = FALSE)
+combined_no_rbc <- RunPCA(combined_no_rbc, npcs = 60, verbose = FALSE) 
+DimPlot(combined_no_rbc, reduction = "pca")
+# combined_no_rbc <- JackStraw(combined_no_rbc, num.replicate = 100, dims = 60)
+# combined_no_rbc <- ScoreJackStraw(combined_no_rbc, dims = 1:60)
+# JackStrawPlot(combined_no_rbc, dims = 1:50)
+ElbowPlot(combined_no_rbc, ndims = 60)
+combined_no_rbc <- RunUMAP(combined_no_rbc, reduction = "pca", dims = 1:40)
+combined_no_rbc <- FindNeighbors(combined_no_rbc, reduction = "pca", dims = 1:40)
+combined_no_rbc <- FindClusters(combined_no_rbc, resolution = 0.7)
+DimPlot(combined_no_rbc, reduction = "umap", label = TRUE)
+```
+
+
+```{r, fig.height=12, fig.width=12}
+genes_fig1D <- c("Myh6", "Cdh5", "Pdgfra", "Msln", "Myh11", "Kcnj8", "Adgre1", "Itgal", "Naaa", "S100a9", "Cd3g", "Ms4a1", "Plp1", "Hbb-bt", "Hba-a1")
+VlnPlot(object = combined_no_rbc, features = genes_fig1D[], stack = TRUE) + NoLegend()
+```
+
+# Compare clusters to paper after removing RBCs
+
+```{r, fig.height=12, fig.width=12}
+DimPlot(combined_no_rbc, reduction = "umap", label = TRUE)
+lapply(clusters_from_paper[1:5], compare_clusters)
+```
+```{r, fig.height=12, fig.width=12}
+DimPlot(combined_no_rbc, reduction = "umap", label = TRUE)
+lapply(clusters_from_paper[6:10], compare_clusters)
+```
+```{r, fig.height=12, fig.width=12}
+DimPlot(combined_no_rbc, reduction = "umap", label = TRUE)
+lapply(clusters_from_paper[11:15], compare_clusters)
+```
+```{r, fig.height=12, fig.width=12}
+DimPlot(combined_no_rbc, reduction = "umap", label = TRUE)
+lapply(clusters_from_paper[16:20], compare_clusters)
+```
+```{r, fig.height=12, fig.width=12}
+DimPlot(combined_no_rbc, reduction = "umap", label = TRUE)
+lapply(clusters_from_paper[21:22], compare_clusters)
+```
+## Now no cluster comes as RBCs
+
+```{r, fig.height=12, fig.width=12}
+genes_fig1D <- c("Myh6", "Cdh5", "Pdgfra", "Msln", "Myh11", "Kcnj8", "Adgre1", "Itgal", "Naaa", "S100a9", "Cd3g", "Ms4a1", "Plp1", "Hbb-bt", "Hba-a1")
+FeaturePlot(object = combined_no_rbc, features = genes_fig1D[1:6], ncol = 2)
+FeaturePlot(object = combined_no_rbc, features = genes_fig1D[7:12], ncol = 2)
+FeaturePlot(object = combined_no_rbc, features = genes_fig1D[13:20], ncol = 2)
+DimPlot(combined_no_rbc, reduction = "umap", label = TRUE)
+
+```
+```{r}
+combined_no_rbc.markers <- FindAllMarkers(combined_no_rbc, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+combined_no_rbc.markers %>%
+    group_by(cluster) %>%
+    slice_max(n = 2, order_by = avg_log2FC)
+```
+# Plot heatmaps to check cluster markers
+
+```{r, fig.height=12, fig.width=12}
+combined_no_rbc.markers %>%
+    group_by(cluster) %>%
+    top_n(n = 10, wt = avg_log2FC) -> top10
+
+DoHeatmap(combined_no_rbc, features = top10$gene)+NoLegend()
+```
+
+# Assign the cluster names
+
+```{r}
+cluster_identity <- read.csv(file = "GSE153480/cluters.csv") #made a table manually after going throught the feature plots to help assign the cluster name
+new.cluster.ids <- cluster_identity$cell_identity 
+names(new.cluster.ids) <- levels(combined_no_rbc)
+names(new.cluster.ids)
+new.cluster.ids
+combined_no_rbc <- RenameIdents(combined_no_rbc, new.cluster.ids)
+
+```
+# Plot UMAP with cluster names
+
+```{r}
+
+# combined_no_rbc@meta.data$cell_identity <- factor(combined_no_rbc@meta.data$cell_identity)
+# levels(combined_no_rbc@meta.data$cell_identity)
+# 
+# new.cluster.ids <- 
+# # combined_no_rbc@active.ident <- combined_no_rbc@meta.data$cell_identity
+# combined_no_rbc <- RenameIdents(combined_no_rbc, new.cluster.ids)
+```
+
+```{r, fig.height=12, fig.width=12}
+DimPlot(combined_no_rbc, reduction = "umap", label = TRUE)
+DoHeatmap(combined_no_rbc, features = top10$gene)+NoLegend()
+```
+
+```{r}
+combined_no_rbc@meta.data %>% nrow
+rownames(combined_no_rbc@meta.data) %>% head
+Idents(combined_no_rbc) %>% length
+Idents(combined_no_rbc)[[1]]%>% class
+combined_no_rbc@meta.data$cluster_name <- Idents(combined_no_rbc)
+Idents(combined_no_rbc)
+combined_no_rbc@meta.data %>% head
+```
+
+
+
+
+# DEG for FB
+
+```{r}
+combined_no_rbc
+```
+
+```{r}
+head(combined_no_rbc@meta.data)
+```
+# combine all FB clusters
+
+```{r}
+
+
+combined_no_rbc_FB <- subset(combined_no_rbc, idents = c("FB1", "FB2", "FB3", "FB4"))
+
+combined_no_rbc_FB
+
+```
+
+
+```{r}
+
+All_FB <- c("FB", "FB", "FB", "FB")
+names(All_FB) <- levels(combined_no_rbc_FB)
+
+combined_no_rbc_FB <- RenameIdents(combined_no_rbc_FB, All_FB)
+combined_no_rbc_FB
+unique(Idents(combined_no_rbc_FB))
+```
+## make different conditions for comparing
+
+```{r}
+condition_comparison <- data.frame(con_1= c("D1_P1_MI", "D1_P8_MI", "D3_P1_MI", "D3_P8_MI", 
+                                            "D3_P1_MI", "D3_P8_MI", "D3_P8_MI"),
+                                   con_2= c("D1_P1_SHAM", "D1_P8_SHAM", "D3_P1_SHAM", "D3_P8_SHAM", 
+                                            "D1_P1_MI", "D1_P8_MI", "D3_P1_MI")
+)
+condition_comparison
+```
+
+
+```{r}
+
+
+combined_no_rbc_FB_pseudo_counts <- combined_no_rbc_FB
+
+dir.create("/home/prateek/Mercader_Lab/Splice_variant_analysis/GSE153480/DEGs")
+
+combined_no_rbc_FB_pseudo_counts[["RNA"]]@counts<-as.matrix(combined_no_rbc_FB_pseudo_counts[["RNA"]]@counts)+1
+# make pseudocounts for Deseq at log scale to work(look at Seurat issues github)
+
+
+for (i in 1:nrow(condition_comparison)) {
+# for (i in 1) {
+  pop_1 <- rownames(combined_no_rbc_FB_pseudo_counts@meta.data)[grepl(pattern = condition_comparison$con_1[i], 
+                                                                      x = (combined_no_rbc_FB_pseudo_counts@meta.data$orig.ident))]  # select cells from one condition from the comparison table
+  
+  pop_2 <- rownames(combined_no_rbc_FB_pseudo_counts@meta.data)[grepl(pattern = condition_comparison$con_2[i], 
+                                                                      x = (combined_no_rbc_FB_pseudo_counts@meta.data$orig.ident))]  # select cells from other condition from the comparison table
+
+  DEGs <- FindMarkers(combined_no_rbc_FB_pseudo_counts, ident.1 = pop_1, ident.2 = pop_2, min.pct = 0.25, test.use = "DESeq2", assay = "RNA", slot = "counts") # perform DEG using Find Markers command
+  head(DEGs, n = 5) 
+  
+  write.csv(DEGs, file = paste0("/home/prateek/Mercader_Lab/Splice_variant_analysis/GSE153480/DEGs/FB_", condition_comparison$con_1[i],"_vs_", condition_comparison$con_2[i],".csv"))
+  # write csv table for each combination
+}
+
+  head(DEGs, n = 5)
+```
+## Check if ome of the potential known genes show differential expression
+
+```{r, fig.height=12, fig.width=12}
+
+genes_of_interest <- c("Apoe","Cthrc1", "Postn", "Thbs1")
+VlnPlot(combined_no_rbc_FB_pseudo_counts, features = "Apoe", group.by = "orig.ident") + ggplot2::geom_boxplot(width=0.1)
+VlnPlot(combined_no_rbc_FB_pseudo_counts, features = "Cthrc1", group.by = "orig.ident") + ggplot2::geom_boxplot(width=0.1)
+VlnPlot(combined_no_rbc_FB_pseudo_counts, features = "Postn", group.by = "orig.ident") + ggplot2::geom_boxplot(width=0.1)
+VlnPlot(combined_no_rbc_FB_pseudo_counts, features = "Thbs1", group.by = "orig.ident") + ggplot2::geom_boxplot(width=0.1)
+
+# RidgePlot(combined_no_rbc_FB_pseudo_counts, features = genes_of_interest, group.by = "orig.ident")
+# FeaturePlot(combined_no_rbc_FB_pseudo_counts, features = genes_of_interest, split.by = "orig.ident")
+```
+```{r, fig.height=12, fig.width=12}
+FeaturePlot(combined_no_rbc_FB_pseudo_counts, features = "Postn", pt.size = 2)
+FeaturePlot(combined_no_rbc_FB_pseudo_counts, features = "Cthrc1", pt.size = 2)
+DimPlot(combined_no_rbc_FB_pseudo_counts,group.by = "orig.ident", pt.size = 2)
+
+```
+# Check if there are any Tregs or Lymphocytes
+
+```{r, fig.height=12, fig.width=12}
+#Treg
+
+FeaturePlot(combined_no_rbc,features = c("Cd4", "Il2ra", "Foxp3"))
+FeaturePlot(combined_no_rbc,features = c("Foxp3"))
+```
+
+```{r, fig.height=12, fig.width=12}
+#Lymphocytes
+FeaturePlot(combined_no_rbc,features = c("Cd2", "Lfa2"))
+DimPlot(combined_no_rbc, label = TRUE)
+DimPlot(combined_no_rbc, label = TRUE, group.by = "orig.ident")
+
+
+
+
+```
+
+
+# DEG for all cell types
+
+DEG will performed by cell types which have cells >100 as per https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-019-2599-6
+
+```{r}
+levels(combined_no_rbc) 
+combined_no_rbc@meta.data$cluster_broad <- as.factor(combined_no_rbc@meta.data$cluster_name)
+# assign broad cluster names
+clusters_broad <- c("EC","FB","unknown_2", "EC","FB","Macrophage", "EC","Peri","SMC","EC","CM", "FB","Gra","FB","CM","EC","Bcells","unknown_1", "Epi","Peri","T cells","Glial")
+levels(combined_no_rbc)
+clusters_broad
+length(clusters_broad)
+length(levels(combined_no_rbc) )
+names(clusters_broad) <- levels(combined_no_rbc)
+clusters_broad
+
+
+combined_no_rbc <-  RenameIdents(combined_no_rbc, clusters_broad)
+combined_no_rbc@meta.data$cluster_broad <- Idents(combined_no_rbc)
+Idents(combined_no_rbc) %>% head
+combined_no_rbc@meta.data$cluster_broad %>% unique
+
+
+combined_no_rbc_pseudo_counts <- combined_no_rbc
+levels(combined_no_rbc_pseudo_counts@meta.data$cluster_broad) 
+Idents(combined_no_rbc_pseudo_counts) %>% unique
+
+
+
+
+
+```
+
+
+```{r}
+combined_no_rbc_pseudo_counts@meta.data %>% group_by(cluster_broad) %>% count(orig.ident)
+```
+
+
+```{r}
+cluster_name_all <- unique(combined_no_rbc_pseudo_counts@meta.data$cluster_broad)
+cluster_name_all
+dir.create("/home/prateek/Mercader_Lab/Splice_variant_analysis/GSE153480/DEGs")
+
+combined_no_rbc_pseudo_counts[["RNA"]]@counts<-as.matrix(combined_no_rbc_pseudo_counts[["RNA"]]@counts)+1 
+# make pseudocounts for Deseq at log scale to work(look at Seurat issues github)
+
+num_of_avg_cells_for_DEG <- 100
+write.csv(combined_no_rbc_pseudo_counts@meta.data %>% group_by(cluster_broad) %>% count(orig.ident)  %>%  summarise_at(vars(n),funs(mean(., na.rm=TRUE))),
+          "/home/prateek/Mercader_Lab/Splice_variant_analysis/GSE153480/DEGs/average_cells_cluster_broad.csv")
+# for (j in 1:1) {
+for (j in 1:length(cluster_name_all)) {
+   print(paste0("starting ", cluster_name_all[j]))
+  avg_cells_for_cluster_broad <- (combined_no_rbc_pseudo_counts@meta.data %>% group_by(cluster_broad) %>% count(orig.ident)  %>%  summarise_at(vars(n),funs(mean(., na.rm=TRUE))) %>% filter(cluster_broad==cluster_name_all[j]) %>% pull(n)) # count the average number of cells in each condition for each cell type
+  print(avg_cells_for_cluster_broad)
+  
+  
+  if (avg_cells_for_cluster_broad < num_of_avg_cells_for_DEG) { # check if the number of average cells in cell type is less or greater than 100
+    next # if less than 100 don't calculate DEGs
+  }
+  
+  for (i in 1:nrow(condition_comparison)) { #  if more than 100 calculate DEGs
+  # for (i in 1) {
+    print(paste0(cluster_name_all[j], "_", condition_comparison$con_1[i], "_vs_", condition_comparison$con_2[i]))
+     
+  
+  pop_1 <- rownames(combined_no_rbc_pseudo_counts@meta.data)[grepl(pattern = condition_comparison$con_1[i],
+                                                                      x = (combined_no_rbc_pseudo_counts@meta.data$orig.ident)) &
+                                                               grepl(pattern = cluster_name_all[j],
+                                                                      x = (combined_no_rbc_pseudo_counts@meta.data$cluster_broad)) ] # select cells of one type and condition from condition table
+
+  pop_2 <- rownames(combined_no_rbc_pseudo_counts@meta.data)[grepl(pattern = condition_comparison$con_2[i],
+                                                                      x = (combined_no_rbc_pseudo_counts@meta.data$orig.ident)) &
+                                                               grepl(pattern = cluster_name_all[j],
+                                                                      x = (combined_no_rbc_pseudo_counts@meta.data$cluster_broad))] #  select cells from other condition from the comparison table
+
+  DEGs <- FindMarkers(combined_no_rbc_pseudo_counts, ident.1 = pop_1, ident.2 = pop_2, min.pct = 0.25, test.use = "DESeq2", assay = "RNA", slot = "counts")
+  head(DEGs, n = 5) # find DEG using FindMarker command
+
+  write.csv(DEGs, file =paste0("/home/prateek/Mercader_Lab/Splice_variant_analysis/GSE153480/DEGs/", cluster_name_all[j], "_",
+               condition_comparison$con_1[i], "_vs_", condition_comparison$con_2[i],".csv")) #write the DEG in csv file
+  }
+  print(paste0(cluster_name_all[j], " is done"))
+  }
+
+  
+```
+
+
+```{r}
+saveRDS(combined_no_rbc, file = "combined_no_rbc_1.rds") # save the Seurat object in RDS
+
+```
+
+
+# Analyse shoval's myofibroblasts
+
+## check signature that he sent
+
+```{r}
+myofib_sig <- read.csv("Myofibroblasts gene signature (1).csv")
+head(myofib_sig)
+```
+
+
+
+```{r, fig.height=12, fig.width=12}
+genes_myofib <- myofib_sig$X
+FeaturePlot(object = combined_no_rbc, features = genes_myofib[1:6], ncol = 2)
+FeaturePlot(object = combined_no_rbc, features = genes_myofib[7:12], ncol = 2)
+FeaturePlot(object = combined_no_rbc, features = genes_myofib[13:20], ncol = 2)
+
+FeaturePlot(object = combined_no_rbc, features = genes_myofib[21:27], ncol = 2)
+FeaturePlot(object = combined_no_rbc, features = genes_myofib[28:36], ncol = 2)
+FeaturePlot(object = combined_no_rbc, features = genes_myofib[37:45], ncol = 2)
+
+
+DimPlot(combined_no_rbc, reduction = "umap", label = TRUE)
+```
+## Check signature from different papers
+
+```{r, fig.height=12, fig.width=12}
+
+# https://www.cell.com/cell-reports/pdf/S2211-1247(18)30339-5.pdf
+# https://www.pnas.org/content/113/15/E2162
+# https://www.atsjournals.org/doi/10.1513/pats.201201-011AW
+
+
+FeaturePlot(object = combined_no_rbc, features = c("Acta2", "Aoc3", "Myh11", "Tagln"), ncol = 2)
+FeaturePlot(object = combined_no_rbc, features = c("Fosl2", "Runx1", "Lox", "Col1a1", "Fabp5", "Spon2", "Mmp14", "Itgb1", "Mmp11", "Pdlim7","Pdpn"), ncol = 3)
+```
+
+## Subset Fibroblasts and Smooth muscle cells which might contain the myofibroblasts (as per the Feature plots above)
+
+```{r}
+
+
+potential_myo_sub <- subset(combined_no_rbc, idents = c("FB","SMC"))
+potential_myo_sub
+
+```
+## renormalize and cluster the subset myofibroblasts
+
+```{r}
+potential_myo_sub <- FindVariableFeatures(potential_myo_sub, selection.method = "vst", nfeatures = 1000)
+potential_myo_sub <- ScaleData(potential_myo_sub, verbose = FALSE, )
+potential_myo_sub <- RunPCA(potential_myo_sub, npcs = 60, verbose = FALSE)
+DimPlot(potential_myo_sub, reduction = "pca")
+ElbowPlot(potential_myo_sub, ndims = 25)
+```
+
+
+```{r}
+potential_myo_sub <- RunUMAP(potential_myo_sub, reduction = "pca", dims = 1:8)
+potential_myo_sub <- FindNeighbors(potential_myo_sub, reduction = "pca", dims = 1:8)
+potential_myo_sub <- FindClusters(potential_myo_sub, resolution =1.5)
+DimPlot(potential_myo_sub, reduction = "umap", label = TRUE)
+DimPlot(potential_myo_sub, reduction = "umap", label = TRUE, group.by = "cluster_name")
+```
+
+## check the signatures in subset
+
+```{r, fig.height=12, fig.width=12}
+VlnPlot(object = potential_myo_sub, features = c("Acta2", "Aoc3", "Myh11", "Tagln"), ncol = 2)
+VlnPlot(object = potential_myo_sub, features = c("Fosl2", "Runx1", "Lox", "Col1a1", "Fabp5", "Spon2", "Mmp14", "Itgb1", "Mmp11", "Pdlim7","Pdpn"), ncol = 3)
+
+```
+
+
+```{r, fig.height=12, fig.width=12}
+FeaturePlot(object = potential_myo_sub, features = c("Acta2", "Aoc3", "Myh11", "Tagln"), ncol = 2)
+FeaturePlot(object = potential_myo_sub, features = c("Fosl2", "Runx1", "Lox", "Col1a1", "Fabp5", "Spon2", "Mmp14", "Itgb1", "Mmp11", "Pdlim7","Pdpn"), ncol = 3)
+```
+
+
+```{r, fig.height=12, fig.width=12}
+DotPlot(object = potential_myo_sub, features = c("Col1a1", "Col1a2", "Col5a2", "Col3a1", "Postn", "Cthrc1", "Des", "Myh11", "Acta2", "Aoc3", "Tagln", "Vim"))
+DotPlot(object = combined_no_rbc, features = c("Col1a1", "Col1a2", "Col5a2", "Col3a1", "Postn", "Cthrc1", "Des", "Myh11", "Acta2", "Aoc3",  "Tagln", "Vim"))
+```
+```{r, fig.height=20, fig.width=12}
+VlnPlot(object = potential_myo_sub, features = c("Col1a1", "Col1a2", "Col5a2", "Col3a1", "Postn", "Cthrc1", "Des", "Myh11", "Acta2", "Aoc3", "Tagln", "Vim"), ncol = 2)
+
+VlnPlot(object = combined_no_rbc, features = c("Col1a1", "Col1a2", "Col5a2", "Col3a1", "Postn", "Cthrc1", "Des", "Myh11", "Acta2", "Aoc3",  "Tagln", "Vim"), ncol = 2)
+```
+
+
+```{r, fig.height=20, fig.width=12}
+
+# https://www.ncbi.nlm.nih.gov/labs/pmc/articles/PMC5763885/
+VlnPlot(object = potential_myo_sub, features = c( "Acta2",  "Des", "Vim", "Myh11", "Pdpn", "Mmp11","Cd248", "Actg2", "Cdh11", "Pf4", "Tpm1", "Thy1", "Cfl2" ), ncol = 2)
+# VlnPlot(object = combined_no_rbc, features = c(  "Acta2","Des", "Vim", "Myh11"), ncol = 2)
+# DotPlot(object = potential_myo_sub, features = c( "Acta2",  "Des", "Vim", "Myh11"))
+# DotPlot(object = combined_no_rbc, features = c(  "Acta2","Des", "Vim", "Myh11"))
+DimPlot(object = potential_myo_sub, label = TRUE)
+FeaturePlot(object = potential_myo_sub, features = c( "Acta2",  "Des", "Vim", "Myh11", "Pdpn", "Mmp11","Cd248", "Actg2", "Cdh11", "Pf4", "Tpm1", "Thy1", "Cfl2"))
+```
+# Final MyoFibroblast marker
+After discussion with Shoval Cthrc1 seems to be the most reliable marker to differentiate the myofibroblasts they are in cluster 3,6, 13 and 17
+
+```{r}
+FeaturePlot(object = potential_myo_sub, features = c("Cthrc1"))
+VlnPlot(object = potential_myo_sub, features = c("Cthrc1"))
+DotPlot(object = potential_myo_sub, features = c("Cthrc1"))
+DimPlot(potential_myo_sub, reduction = "umap", label = TRUE)
+```
+
+# Name the Myofibroblast
+
+```{r}
+DimPlot(potential_myo_sub, reduction = "umap", label = TRUE, group.by = "cluster_name")
+DimPlot(potential_myo_sub, reduction = "umap", label = TRUE)
+```
+
+```{r}
+# make a column with old clusters and add myofibroblast to the cluster 1 and 14
+potential_myo_sub@meta.data$myofib_clusters <- as.character(potential_myo_sub@meta.data$cluster_name)
+head(potential_myo_sub@meta.data)
+
+```
+
+
+```{r}
+potential_myo_sub@meta.data$myofib_clusters[potential_myo_sub@meta.data$integrated_snn_res.1.5==4|potential_myo_sub@meta.data$integrated_snn_res.1.5==13|potential_myo_sub@meta.data$integrated_snn_res.1.5==17|potential_myo_sub@meta.data$integrated_snn_res.1.5==6|potential_myo_sub@meta.data$integrated_snn_res.1.5==8] <- "Myofibroblasts"
+potential_myo_sub@meta.data$myofib_clusters %>% unique
+DimPlot(potential_myo_sub, reduction = "umap", label = TRUE, group.by = "myofib_clusters")
+```
+# Write Seurat object with subset with myofibroblasts
+
+```{r}
+saveRDS(object = potential_myo_sub, "FB_SMC_Myofib_Wang_et_al_cellrep.RDS")
+```
+
+# annotate myofibroblasts in the bigger Seurat object
+```{r}
+potential_myo_sub
+```
+
+
+```{r}
+rownames(combined_no_rbc@meta.data) %in% rownames(potential_myo_sub@meta.data) %>% sum
+combined_no_rbc@meta.data$myofib_clusters <- as.character(combined_no_rbc@meta.data$cluster_broad)
+combined_no_rbc@meta.data$myofib_clusters[rownames(combined_no_rbc@meta.data) %in%
+                                            rownames(potential_myo_sub@meta.data)[potential_myo_sub@meta.data$myofib_clusters=="Myofibroblasts"]] <- "Myofibroblasts"
+combined_no_rbc@meta.data$myofib_clusters %>% unique()
+```
+
+```{r}
+
+
+combined_no_rbc@meta.data$myofib_clusters 
+Idents(combined_no_rbc) <- combined_no_rbc@meta.data$myofib_clusters 
+Idents(combined_no_rbc) %>% unique()
+DimPlot(combined_no_rbc, reduction = "umap", label = TRUE)
+DimPlot(combined_no_rbc, reduction = "umap", label = TRUE, group.by = "myofib_clusters")
+
+```
+
+```{r, fig.width=12, fig.height=12}
+DotPlot(combined_no_rbc, features = c("Cthrc1"))
+FeaturePlot(combined_no_rbc, features = c("Cthrc1"))
+DimPlot(combined_no_rbc, reduction = "umap", label = TRUE, group.by = "myofib_clusters")
+```
+```{r}
+VlnPlot(object = combined_no_rbc, features = c(genes_fig1D, "Cthrc1"), stack = TRUE) + NoLegend()
+```
+
+
+```{r}
+saveRDS(combined_no_rbc, "Wang_et_al_Seurat_ojb_myofibroblasts.RDS")
+```
+
+
+
+
+```{r}
+save.image("Wang_et_al_2019_with_myofibrablast.Rdata")
+```
+
+
+
+```{r}
+load("Wang_et_al_2019_with_myofibrablast.Rdata")
+```
+
+```{r}
+sessionInfo()
+```
+
+
+
